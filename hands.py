@@ -10,7 +10,7 @@ osc_client = SimpleUDPClient("127.0.0.1", 57120)  # IP address and port
 cap = cv2.VideoCapture(0)
 
 # Initialize the hand detector
-detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.5, minTrackCon=0.2)
+detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.8, minTrackCon=0.2)
 
 def is_inside_box(point, box):
     x, y = point
