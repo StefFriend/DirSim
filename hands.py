@@ -46,8 +46,8 @@ l_hand_h = int(cap_height*l_hand_ratio)
 boxes = {
         "up": (r_hand_l_t, 0, r_hand_l_t + r_hand_w, r_hand_h),
         "down": (r_hand_l_t, r_hand_h*2, r_hand_l_t+r_hand_w, r_hand_h+r_hand_h*2),
-        "left": (int(r_hand_l_t-r_hand_w*1.5) , r_hand_h, int(r_hand_l_t- 0.5 * r_hand_w), int(r_hand_h*2)),
-        "right": (int(r_hand_l_t+r_hand_w*1.5),r_hand_h,int(r_hand_l_t+r_hand_w*2.5),r_hand_h*2),
+        "left": (int(r_hand_l_t-r_hand_w*1) , r_hand_h, int(r_hand_l_t), int(r_hand_h*2)),
+        "right": (int(r_hand_l_t+r_hand_w*1),r_hand_h,int(r_hand_l_t+r_hand_w*2),r_hand_h*2),
         "dyn1": (0, 0, l_hand_w, l_hand_h),
         "dyn2": (0, l_hand_h, l_hand_w, l_hand_h*2),
         "dyn3": (0, l_hand_h*2, l_hand_w, l_hand_h*3)
