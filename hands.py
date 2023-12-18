@@ -10,10 +10,7 @@ osc_client = SimpleUDPClient("127.0.0.1", 57120)  # IP address and port
 cap = cv2.VideoCapture(0)
 
 # Initialize the hand detector
-detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=1, detectionCon=0.5, minTrackCon=0.2)
-
-#def flip_hand_type(hand_type):
-#    return 'Left' if hand_type == 'Right' else 'Right'
+detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.5, minTrackCon=0.2)
 
 def is_inside_box(point, box):
     x, y = point
@@ -21,7 +18,7 @@ def is_inside_box(point, box):
     return x1 <= x <= x2 and y1 <= y <= y2
 
 # Timers for each box to control the message sending frequency
-last_time_sent = {"up": 0, "down": 0, "left": 0, "right": 0}
+last_time_sent = {"up": 0, "down": 0, "left": 0, "right": 0, "dyn1": 0, "dyn2": 0, "dyn3": 0}
 
 while True:
     success, img = cap.read()
@@ -46,17 +43,17 @@ while True:
     hands, img = detector.findHands(img, draw=True, flipType=False)
 
     if hands:
-        # Manually flip the hand type for each hand
-        #for hand in hands:
-        #   hand['type'] = flip_hand_type(hand['type'])
-
-        # Now process each hand
         for hand in hands:
             center = hand['center']
-            hand_type = hand['type']  # This will now be correctly flipped
+            hand_type = hand['type']
 
-        # Check if the hand center is inside any box
-            for box_name in ["up", "down", "left", "right"]:  # Only these boxes
+            # Define which boxes are allowed for each hand type
+            allowed_boxes = {
+                "Right": ["up", "down", "left", "right"],
+                "Left": ["dyn1", "dyn2", "dyn3"]
+            }
+
+            for box_name in allowed_boxes[hand_type]:  # Check allowed boxes for the hand type
                 box_coords = boxes[box_name]
                 if is_inside_box(center, box_coords):
                     current_time = time.time()
@@ -65,7 +62,6 @@ while True:
                         osc_client.send_message("/tapTempo", [])
                         print(f"OSC message sent for {hand_type} hand at {box_name} box")
                         last_time_sent[box_name] = current_time
-
 
     cv2.imshow("Image", img)
     cv2.waitKey(1)
