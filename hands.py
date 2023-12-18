@@ -10,9 +10,12 @@ osc_client = SimpleUDPClient("127.0.0.1", 57120)  # IP address and port
 
 # Initialize the webcam
 cap = cv2.VideoCapture(0)
+cap_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+cap_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+# print(frame_width,frame_height)
 
 # Initialize the hand detector
-detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.4, minTrackCon=0.2)
+detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.8, minTrackCon=0.2)
 
 # Initialize the face detector
 face_detector = FaceDetector(minDetectionCon=0.7)
@@ -29,22 +32,30 @@ last_face_message_time = 0
 face_detected = False
 face_absent_duration = 30  # Duration in seconds to wait before sending the stop message
 
+# right hand
+r_hand_w = 100
+r_hand_h = 100
+r_ratio = 0.15
+r_hand_l_t = int(cap_width*(1-r_ratio)-r_hand_w)
 
+# left hand
+l_hand_ratio = 0.33
+l_hand_w = 100
+l_hand_h = int(cap_height*l_hand_ratio)
+
+boxes = {
+        "up": (r_hand_l_t, 0, r_hand_l_t + r_hand_w, r_hand_h),
+        "down": (r_hand_l_t, r_hand_h*2, r_hand_l_t+r_hand_w, r_hand_h+r_hand_h*2),
+        "left": (int(r_hand_l_t-r_hand_w*1.5) , r_hand_h, int(r_hand_l_t- 0.5 * r_hand_w), int(r_hand_h*2)),
+        "right": (int(r_hand_l_t+r_hand_w*1.5),r_hand_h,int(r_hand_l_t+r_hand_w*2.5),r_hand_h*2),
+        "dyn1": (0, 0, l_hand_w, l_hand_h),
+        "dyn2": (0, l_hand_h, l_hand_w, l_hand_h*2),
+        "dyn3": (0, l_hand_h*2, l_hand_w, l_hand_h*3)
+}
 
 
 while True:
     success, img = cap.read()
-
-    # Define the boxes
-    boxes = {
-        "up": (650, 0, 1130, 150),
-        "down": (650, 570, 1130, 720),
-        "left": (500, 150, 650, 570),
-        "right": (1130, 150, 1280, 570),
-        "dyn1": (0, 0, 150, 720),
-        "dyn2": (150, 0, 300, 720),
-        "dyn3": (300, 0, 450, 720)
-    }
 
     img = cv2.flip(img, 1)
 
