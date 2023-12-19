@@ -12,13 +12,13 @@ osc_client = SimpleUDPClient("127.0.0.1", 57120)  # IP address and port
 cap = cv2.VideoCapture(0)
 # set size
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 cap_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 cap_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 # print(frame_width,frame_height)
 
 # Initialize the hand detector
-detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=0, detectionCon=0.5, minTrackCon=0.2)
+detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=1, detectionCon=0.5, minTrackCon=0.5)
 
 # Initialize the face detector
 face_detector = FaceDetector(minDetectionCon=0.7)
@@ -103,7 +103,7 @@ while True:
 
 
     # Face detection
-    img, bboxs = face_detector.findFaces(img, draw=True)
+    img, bboxs = face_detector.findFaces(img, draw=False)
 
     if bboxs:
         # Face is detected
