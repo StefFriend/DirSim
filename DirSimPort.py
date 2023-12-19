@@ -35,7 +35,7 @@ ports = list_midi_ports()
 selected_port_index = select_midi_port(ports)
 midi_in.open_port(selected_port_index)
 
-osc_client = udp_client.SimpleUDPClient("127.0.0.1", 57120)  # replace port if needed
+osc_client = udp_client.SimpleUDPClient("127.0.0.1", 57122)  # replace port if needed
 
 def midi_callback(message, time_stamp):
     message, deltatime = message

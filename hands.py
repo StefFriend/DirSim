@@ -17,11 +17,15 @@ cap_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 cap_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 # print(frame_width,frame_height)
 
+# Specify the window name and desired size
+window_name = "DirSim"
+
+
 # Initialize the hand detector
-detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=1, detectionCon=0.5, minTrackCon=0.5)
+detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=1, detectionCon=0.5, minTrackCon=0.3)
 
 # Initialize the face detector
-face_detector = FaceDetector(minDetectionCon=0.7)
+face_detector = FaceDetector(minDetectionCon=0.6)
 
 
 def is_inside_box(point, box):
@@ -90,20 +94,32 @@ while True:
             }
 
             # Check if the current hand is the right hand and if it interacts with specific boxes
-            if hand_type in osc_boxes:
-                for box_name in osc_boxes[hand_type]:
-                    box_coords = boxes[box_name]
-                    if is_inside_box(center, box_coords):
-                        current_time = time.time()
-                        # Send OSC message if 400ms have passed since the last message for this box
-                        if current_time - last_time_sent[box_name] > 0.4:
-                            osc_client.send_message("/tapTempo", [])
-                            print(f"OSC message sent when {hand_type} hand reached {box_name} box")
-                            last_time_sent[box_name] = current_time
+            # ... [rest of your code]
+
+            if hands:
+                for hand in hands:
+                    # Get the list of all 21 landmarks for the hand
+                    landmarks = hand['lmList']
+                    hand_type = hand['type']  # 'Right' or 'Left'
+
+                    if hand_type in osc_boxes:
+                        for box_name in osc_boxes[hand_type]:
+                            box_coords = boxes[box_name]
+                            for landmark in landmarks:
+                                # Extract x and y coordinates from the landmark
+                                x, y = landmark[0], landmark[1]
+                                if is_inside_box((x, y), box_coords):
+                                    current_time = time.time()
+                                    # Send OSC message if 400ms have passed since the last message for this box
+                                    if current_time - last_time_sent[box_name] > 0.7:
+                                        osc_client.send_message("/tapTempo", [])
+                                        print(f"OSC message sent when {hand_type} hand's landmark reached {box_name} box")
+                                        last_time_sent[box_name] = current_time
+
 
 
     # Face detection
-    img, bboxs = face_detector.findFaces(img, draw=False)
+    img, bboxs = face_detector.findFaces(img, draw=True)
 
     if bboxs:
         # Face is detected
@@ -133,5 +149,12 @@ while True:
                 last_face_seen_time = None  # Reset the last seen time
 
 
-    cv2.imshow("Image", img)
-    cv2.waitKey(1)
+    cv2.imshow(window_name, img)
+
+    # Break the loop when 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the capture and destroy all windows when done
+cap.release()
+cv2.destroyAllWindows()
