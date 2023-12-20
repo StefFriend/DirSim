@@ -93,9 +93,7 @@ while True:
                 # "Left": []  # No OSC messages for left hand interactions currently
             }
 
-            # Check if the current hand is the right hand and if it interacts with specific boxes
-            # ... [rest of your code]
-
+            
             if hands:
                 for hand in hands:
                     # Get the list of all 21 landmarks for the hand
