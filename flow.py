@@ -97,7 +97,7 @@ while True:
 
     # Combine and display the results for both processing part
     combined_frame = np.concatenate((left_half_processed, right_half_frame), axis=1)
-    cv2.imshow('Combined Processing', combined_frame)
+    cv2.imshow('DirSim', combined_frame)
 
     if time.time() - start_time >= 1:
         if bpm_values:
