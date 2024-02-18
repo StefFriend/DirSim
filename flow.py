@@ -39,10 +39,20 @@ bpm_values = []
 last_bpm = 0  
 start_time = time.time()
 
-current_value = 30
-min_value = 30   # Minimum threshold for current_value
-max_value = 127 # Maximum threshold for current_value
-prev_y_position = None
+value1 = 30
+value2 = 30
+min_value = 30
+max_value = 127
+prev_y_position = None  # For tracking vertical hand movement
+
+
+def is_finger_open(finger_tip, finger_dip, finger_pip, finger_mcp):
+    # Logic to check if a finger is open
+    return finger_tip.y < finger_dip.y < finger_pip.y and finger_tip.y < finger_mcp.y
+
+def is_thumb_open(thumb_tip, thumb_ip, thumb_mcp):
+    # Logic to check if the thumb is open
+    return thumb_tip.x < thumb_ip.x and thumb_tip.x < thumb_mcp.x
 
 while True:
     ret, frame = cap.read()
@@ -72,30 +82,55 @@ while True:
         for hand_landmarks in right_half_results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(right_half_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-            current_y_position = tip.y
+            # Extract landmarks for fingers
+            thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+            thumb_ip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP]
+            thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP]
+
+            index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+            index_dip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_DIP]
+            index_pip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_PIP]
+            index_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
+
+
+            # Check hand poses
+            thumb_open = is_thumb_open(thumb_tip, thumb_ip, thumb_mcp)
+            index_open = is_finger_open(index_tip, index_dip, index_pip, index_mcp)
+            
+
+            all_fingers_closed = not any([thumb_open, index_open, ...])  # Check if all fingers are closed
+            all_fingers_open = all([thumb_open, index_open, ...])  # Check if all fingers are open
+
+            # Track vertical hand movement
+            wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
+            current_y_position = wrist.y
 
             if prev_y_position is not None:
                 movement_speed = current_y_position - prev_y_position
 
-                # Upward movement
-                if movement_speed < 0:  
-                    value_change_speed = 5 if abs(movement_speed) > 0.01 else 1
-                    current_value = min(current_value + value_change_speed, max_value)
-                # Downward movement
-                elif movement_speed > 0:  
-                    value_change_speed = 5 if movement_speed > 0.01 else 1
-                    current_value = max(current_value - value_change_speed, min_value)
-
-                print(f"Current Value: {current_value}, Movement Speed: {movement_speed}")
+                # Adjust value1 and value2 based on hand pose and movement
+                if index_open and all([not thumb_open, ...]):  # Only index finger open
+                    if movement_speed < 0:  # Hand moving up
+                        value1 = min(value1 + 1, max_value)
+                    elif movement_speed > 0:  # Hand moving down
+                        value1 = max(value1 - 1, min_value)
+                elif all_fingers_open:
+                    if movement_speed < 0:  # Hand moving up
+                        value2 = min(value2 + 1, max_value)
+                    elif movement_speed > 0:  # Hand moving down
+                        value2 = max(value2 - 1, min_value)
 
             prev_y_position = current_y_position
 
-    # Value on the screen
-    cv2.putText(right_half_frame, f"Value: {current_value}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            print(f"Value1: {value1}, Value2: {value2}")
 
 
-    # Combine and display the results for both processing part
+    # Display values on the screen
+    cv2.putText(right_half_frame, f"Value1: {value1}, Value2: {value2}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+
+
+    # Display results
     combined_frame = np.concatenate((left_half_processed, right_half_frame), axis=1)
     cv2.imshow('DirSim', combined_frame)
 
