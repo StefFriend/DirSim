@@ -62,7 +62,7 @@ while True:
     # Left half processing
     half_frame = frame[:, :half_width]
     gray = cv2.cvtColor(half_frame, cv2.COLOR_BGR2GRAY)
-    flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 120, 30, 5, 5, 1.2, 0)
     bpm = calculate_bpm(flow)
     
     if abs(bpm - last_bpm) > 10:
