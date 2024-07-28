@@ -5,6 +5,7 @@ from pythonosc.udp_client import SimpleUDPClient
 from bpm_calculators import HandSpeedBPMCalculator, PatternBPMCalculator
 from hand_tracker import HandTracker
 from slider_controller import SliderController
+import threading
 
 class MainProgram:
     def __init__(self, update_bpm_callback, update_frame_callback, config):
@@ -14,6 +15,9 @@ class MainProgram:
         self.running = False
 
         self.osc_client = SimpleUDPClient(config['OSC_SERVER'], config['OSC_PORT'])
+        self.osc_message_queue = []
+        self.osc_thread = threading.Thread(target=self.send_osc_messages, daemon=True)
+        self.osc_thread.start()
 
         self.cap = cv2.VideoCapture(1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -44,19 +48,35 @@ class MainProgram:
         self.current_bpm = config['INITIAL_BPM']
 
         self.start_message_sent = False
+        self.hand_detected = False
+        self.mode2_touch_sequence = []
+        self.expected_sequence = ['down', 'left', 'right', 'up']
+
+    def queue_osc_message(self, address, value):
+        self.osc_message_queue.append((address, value))
+
+    def send_osc_messages(self):
+        while True:
+            if self.osc_message_queue:
+                address, value = self.osc_message_queue.pop(0)
+                self.osc_client.send_message(address, value)
+                time.sleep(0.01)  # Small delay between messages
+            else:
+                time.sleep(0.01)  # Sleep to prevent busy-waiting
 
     def send_start_messages(self):
-        self.osc_client.send_message('/stop', 1)
-        self.osc_client.send_message('/time', '0:00.000')
-        self.osc_client.send_message('/play', 1)
-        print("OSC sent - Play message")
+        self.queue_osc_message('/stop', 1)
+        self.queue_osc_message('/time', '0:00.000')
+        self.queue_osc_message('/play', 1)
+        print("OSC messages queued - Play message")
+        self.start_message_sent = True
 
     def reset_bpm(self):
         self.current_bpm = self.config['INITIAL_BPM']
         self.hand_speed_bpm_calculator.current_bpm = self.config['INITIAL_BPM']
         self.pattern_bpm_calculator.current_bpm = self.config['INITIAL_BPM']
         self.pattern_bpm_calculator.last_valid_bpm = self.config['INITIAL_BPM']
-        self.osc_client.send_message('/tempo/raw', int(self.config['INITIAL_BPM']))
+        self.queue_osc_message('/tempo/raw', int(self.config['INITIAL_BPM']))
         print(f"BPM reset to initial value: {self.config['INITIAL_BPM']}")
 
     def handle_key(self, key):
@@ -66,13 +86,18 @@ class MainProgram:
                 self.pattern_bpm_calculator = PatternBPMCalculator()
                 self.pattern_bpm_calculator.current_bpm = self.current_bpm
                 self.pattern_bpm_calculator.last_valid_bpm = self.current_bpm
+            self.start_message_sent = False
+            self.hand_detected = False
+            self.mode2_touch_sequence = []
             print(f"Switched to Mode {self.mode}")
         elif key == 's':
-            self.osc_client.send_message('/stop', 1)
-            self.osc_client.send_message('/time', '0:00.000')
+            self.queue_osc_message('/stop', 1)
+            self.queue_osc_message('/time', '0:00.000')
             self.reset_bpm()
             self.start_message_sent = False
-            print("OSC sent - Stop and Time messages, BPM reset")
+            self.hand_detected = False
+            self.mode2_touch_sequence = []
+            print("OSC messages queued - Stop and Time messages, BPM reset")
 
     def run(self):
         self.running = True
@@ -90,9 +115,21 @@ class MainProgram:
 
             img, right_hand_position, left_hand_fingers, touched_boxes = self.hand_tracker.process_hands(img, self.mode)
 
-            if not self.start_message_sent and (right_hand_position is not None or left_hand_fingers is not None):
-                self.send_start_messages()
-                self.start_message_sent = True
+            # Handle start message logic
+            if self.mode == 1:
+                if (right_hand_position is not None or left_hand_fingers is not None) and not self.start_message_sent:
+                    self.hand_detected = True
+                    self.send_start_messages()
+            else:  # Mode 2
+                if touched_boxes:
+                    for box_name, _ in touched_boxes:
+                        if box_name not in self.mode2_touch_sequence:
+                            self.mode2_touch_sequence.append(box_name)
+                    
+                    if len(self.mode2_touch_sequence) == 4 and self.mode2_touch_sequence == self.expected_sequence:
+                        if not self.start_message_sent:
+                            self.send_start_messages()
+                        self.mode2_touch_sequence = []  # Reset the sequence after sending start messages
 
             current_time = time.time()
 
@@ -113,15 +150,15 @@ class MainProgram:
 
             if current_time - self.last_bpm_send_time >= self.bpm_send_interval:
                 rounded_bpm = round(self.current_bpm, 0)
-                self.osc_client.send_message('/tempo/raw', int(rounded_bpm))
+                self.queue_osc_message('/tempo/raw', int(rounded_bpm))
                 self.last_bpm_send_time = current_time
-                print(f"OSC sent - BPM: {rounded_bpm}")
+                print(f"OSC queued - BPM: {rounded_bpm}")
 
             if current_time - self.last_slider_send_time >= self.slider_send_interval:
-                self.osc_client.send_message('/track/5/volume', self.slider1.value)
-                self.osc_client.send_message('/track/4/volume', self.slider2.value)
+                self.queue_osc_message('/track/5/volume', self.slider1.value)
+                self.queue_osc_message('/track/4/volume', self.slider2.value)
                 self.last_slider_send_time = current_time
-                print(f"OSC sent - Track 5 Volume: {self.slider1.value:.2f}, Track 4 Volume: {self.slider2.value:.2f}")
+                print(f"OSC queued - Track 5 Volume: {self.slider1.value:.2f}, Track 4 Volume: {self.slider2.value:.2f}")
 
             cv2.putText(img, f"BPM: {self.current_bpm:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(img, f"Mode: {self.mode}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
