@@ -32,7 +32,7 @@ class MainThread(QThread):
 class HandTrackingGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Hand Tracking BPM Control")
+        self.setWindowTitle("DirSim Controller")
         self.setGeometry(100, 100, 1200, 800)
 
         central_widget = QWidget()
