@@ -1,21 +1,30 @@
 import numpy as np
-import time
 from collections import deque
-from config import INITIAL_BPM, MIN_BPM, MAX_BPM
+import time
 
 class HandSpeedBPMCalculator:
-    def __init__(self, speed_threshold=1000, still_threshold=100, dead_zone=80, decrease_rate=0.5):
-        self.current_bpm = INITIAL_BPM
+    def __init__(self, speed_threshold=1000, still_threshold=100, dead_zone=80, decrease_rate=0.5, initial_bpm=104, min_bpm=100, max_bpm=125):
         self.speed_threshold = speed_threshold
         self.still_threshold = still_threshold
         self.dead_zone = dead_zone
         self.decrease_rate = decrease_rate
+        self.current_bpm = initial_bpm
+        self.min_bpm = min_bpm
+        self.max_bpm = max_bpm
         self.last_position = None
         self.last_time = None
         self.speeds = deque(maxlen=5)
         self.bpm_history = deque(maxlen=3)
         self.no_hand_counter = 0
         self.last_update_time = time.time()
+
+    def update_config(self, key, value):
+        if key == 'MIN_BPM':
+            self.min_bpm = value
+        elif key == 'MAX_BPM':
+            self.max_bpm = value
+        elif key == 'INITIAL_BPM':
+            self.current_bpm = value
 
     def update_bpm(self, hand_position):
         current_time = time.time()
@@ -31,19 +40,19 @@ class HandSpeedBPMCalculator:
                 avg_speed = np.mean(self.speeds)
                 
                 if avg_speed < self.still_threshold:
-                    bpm_diff = self.current_bpm - INITIAL_BPM
+                    bpm_diff = self.current_bpm - self.min_bpm
                     decrease_amount = self.decrease_rate * time_diff
                     if abs(bpm_diff) < decrease_amount:
-                        self.current_bpm = INITIAL_BPM
+                        self.current_bpm = self.min_bpm
                     else:
                         self.current_bpm -= np.sign(bpm_diff) * decrease_amount
-                    print(f"Hand is still. BPM decreasing to initial: {self.current_bpm:.2f}")
+                    print(f"Hand is still. BPM decreasing to minimum: {self.current_bpm:.2f}")
                 elif avg_speed < self.dead_zone:
                     print(f"Small movement detected. BPM maintained at {self.current_bpm:.2f}")
                 else:
                     speed_ratio = ((avg_speed - self.dead_zone) / (self.speed_threshold - self.dead_zone)) ** 0.75
                     speed_ratio = max(0, min(speed_ratio, 1))
-                    new_bpm = MIN_BPM + speed_ratio * (MAX_BPM - MIN_BPM)
+                    new_bpm = self.min_bpm + speed_ratio * (self.max_bpm - self.min_bpm)
                     
                     self.bpm_history.append(new_bpm)
                     self.current_bpm = np.mean(self.bpm_history)
@@ -63,13 +72,24 @@ class HandSpeedBPMCalculator:
         return self.current_bpm
 
 class PatternBPMCalculator:
-    def __init__(self, window_size=4):
+    def __init__(self, window_size=4, initial_bpm=104, min_bpm=100, max_bpm=125):
         self.window_size = window_size
         self.touch_times = deque(maxlen=window_size)
-        self.current_bpm = INITIAL_BPM
-        self.last_valid_bpm = INITIAL_BPM
+        self.current_bpm = initial_bpm
+        self.last_valid_bpm = initial_bpm
+        self.min_bpm = min_bpm
+        self.max_bpm = max_bpm
         self.expected_pattern = ['down', 'left', 'right', 'up']
         self.pattern_index = 0
+
+    def update_config(self, key, value):
+        if key == 'MIN_BPM':
+            self.min_bpm = value
+        elif key == 'MAX_BPM':
+            self.max_bpm = value
+        elif key == 'INITIAL_BPM':
+            self.current_bpm = value
+            self.last_valid_bpm = value
 
     def add_touch(self, touch_time, box_name):
         if box_name == self.expected_pattern[self.pattern_index]:
@@ -85,7 +105,7 @@ class PatternBPMCalculator:
             avg_interval = np.mean(intervals)
             bpm = 60 / avg_interval
 
-            if MIN_BPM <= bpm <= MAX_BPM:
+            if self.min_bpm <= bpm <= self.max_bpm:
                 self.current_bpm = bpm
                 self.last_valid_bpm = bpm
             elif self.last_valid_bpm is not None:

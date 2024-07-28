@@ -1,12 +1,48 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QPushButton, QLineEdit
-from PyQt5.QtGui import QImage, QPixmap, QKeyEvent
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QColor, QPainter, QImage, QPixmap
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QRect
 import cv2
 import numpy as np
 
 from main import MainProgram
 from config import INITIAL_BPM, MIN_BPM, MAX_BPM, OSC_SERVER, OSC_PORT
+
+
+class DynamicRangeBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.min_value = MIN_BPM
+        self.max_value = MAX_BPM
+        self.setMinimumHeight(20)
+
+    def setRange(self, min_value, max_value):
+        self.min_value = min_value
+        self.max_value = max_value
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw background
+        painter.fillRect(self.rect(), QColor(200, 200, 200))
+
+        # Calculate color based on range
+        dynamic_range = self.max_value - self.min_value
+        if dynamic_range <= 15:
+            color = QColor(0, 255, 0)  # Green
+        elif dynamic_range <= 30:
+            color = QColor(255, 165, 0)  # Orange
+        else:
+            color = QColor(255, 0, 0)  # Red
+
+        # Draw colored bar
+        painter.fillRect(self.rect(), color)
+
+        # Draw text
+        painter.setPen(Qt.white)
+        painter.drawText(self.rect(), Qt.AlignCenter, f"{dynamic_range} BPM")
 
 class MainThread(QThread):
     update_bpm = pyqtSignal(float)
@@ -29,6 +65,10 @@ class MainThread(QThread):
         if self.main_program:
             self.main_program.handle_key(key)
 
+    def update_config(self, key, value):
+        if self.main_program:
+            self.main_program.update_config(key, value)
+
 class HandTrackingGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -46,7 +86,7 @@ class HandTrackingGUI(QMainWindow):
         left_layout.addWidget(self.camera_label)
 
         self.bpm_label = QLabel(f"BPM: {INITIAL_BPM}")
-        self.bpm_label.setStyleSheet("font-size: 48px; font-weight: bold;")
+        self.bpm_label.setStyleSheet("font-size: 120px; font-weight: bold;")
         self.bpm_label.setAlignment(Qt.AlignCenter)
         left_layout.addWidget(self.bpm_label)
 
@@ -56,9 +96,13 @@ class HandTrackingGUI(QMainWindow):
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("Configuration"))
 
-        self.initial_bpm_slider, self.initial_bpm_label = self.create_slider("Initial BPM", INITIAL_BPM, MIN_BPM, MAX_BPM, right_layout)
-        self.min_bpm_slider, self.min_bpm_label = self.create_slider("Min BPM", MIN_BPM, 60, MAX_BPM, right_layout)
-        self.max_bpm_slider, self.max_bpm_label = self.create_slider("Max BPM", MAX_BPM, MIN_BPM, 200, right_layout)
+        self.initial_bpm_slider, self.initial_bpm_label = self.create_slider("Initial BPM", INITIAL_BPM, 60, 200, right_layout)
+        self.min_bpm_slider, self.min_bpm_label = self.create_slider("Min BPM", MIN_BPM, 60, 200, right_layout)
+        self.max_bpm_slider, self.max_bpm_label = self.create_slider("Max BPM", MAX_BPM, 60, 200, right_layout)
+
+        self.dynamic_range_bar = DynamicRangeBar()
+        right_layout.addWidget(QLabel("Tempo Dynamic"))
+        right_layout.addWidget(self.dynamic_range_bar)
 
         self.osc_server_input = QLineEdit(OSC_SERVER)
         right_layout.addWidget(QLabel("OSC Server:"))
@@ -97,6 +141,8 @@ class HandTrackingGUI(QMainWindow):
         slider.setMinimum(min_value)
         slider.setMaximum(max_value)
         slider.setValue(initial_value)
+        slider.setTickPosition(QSlider.TicksBelow)
+        slider.setTickInterval(10)
         slider.valueChanged.connect(lambda value: self.update_config_label(name, value))
         layout.addWidget(slider)
         label = QLabel(f"Current: {initial_value}")
@@ -104,12 +150,50 @@ class HandTrackingGUI(QMainWindow):
         return slider, label
 
     def update_config_label(self, name, value):
-        if name == "Initial BPM":
-            self.initial_bpm_label.setText(f"Current: {value}")
-        elif name == "Min BPM":
-            self.min_bpm_label.setText(f"Current: {value}")
+        if name == "Min BPM":
+            if value <= self.max_bpm_slider.value():
+                self.min_bpm_label.setText(f"Current: {value}")
+                if self.main_thread:
+                    self.main_thread.update_config('MIN_BPM', value)
+                self.check_initial_bpm()
+            else:
+                self.min_bpm_slider.setValue(self.max_bpm_slider.value())
         elif name == "Max BPM":
-            self.max_bpm_label.setText(f"Current: {value}")
+            if value >= self.min_bpm_slider.value():
+                self.max_bpm_label.setText(f"Current: {value}")
+                if self.main_thread:
+                    self.main_thread.update_config('MAX_BPM', value)
+                self.check_initial_bpm()
+            else:
+                self.max_bpm_slider.setValue(self.min_bpm_slider.value())
+        elif name == "Initial BPM":
+            if self.min_bpm_slider.value() <= value <= self.max_bpm_slider.value():
+                self.initial_bpm_label.setText(f"Current: {value}")
+                if self.main_thread:
+                    self.main_thread.update_config('INITIAL_BPM', value)
+            else:
+                self.check_initial_bpm()
+        
+        self.update_dynamic_range_bar()
+
+    def check_initial_bpm(self):
+        current_value = self.initial_bpm_slider.value()
+        min_bpm = self.min_bpm_slider.value()
+        max_bpm = self.max_bpm_slider.value()
+
+        if current_value < min_bpm:
+            self.initial_bpm_slider.setValue(min_bpm)
+        elif current_value > max_bpm:
+            self.initial_bpm_slider.setValue(max_bpm)
+
+        self.initial_bpm_label.setText(f"Current: {self.initial_bpm_slider.value()}")
+        if self.main_thread:
+            self.main_thread.update_config('INITIAL_BPM', self.initial_bpm_slider.value())
+
+    def update_dynamic_range_bar(self):
+        min_bpm = self.min_bpm_slider.value()
+        max_bpm = self.max_bpm_slider.value()
+        self.dynamic_range_bar.setRange(min_bpm, max_bpm)
 
     def update_frame(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -153,7 +237,7 @@ class HandTrackingGUI(QMainWindow):
         if self.main_thread and self.main_thread.main_program:
             self.main_thread.send_key(key)
 
-    def keyPressEvent(self, event: QKeyEvent):
+    def keyPressEvent(self, event):
         if self.main_thread and self.main_thread.main_program:
             if event.key() == Qt.Key_M:
                 self.send_key('m')

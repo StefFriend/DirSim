@@ -31,9 +31,17 @@ class MainProgram:
             speed_threshold=1000,
             still_threshold=100,
             dead_zone=80,
-            decrease_rate=0.5
+            decrease_rate=0.5,
+            initial_bpm=config['INITIAL_BPM'],
+            min_bpm=config['MIN_BPM'],
+            max_bpm=config['MAX_BPM']
         )
-        self.pattern_bpm_calculator = PatternBPMCalculator(window_size=4)
+        self.pattern_bpm_calculator = PatternBPMCalculator(
+            window_size=4,
+            initial_bpm=config['INITIAL_BPM'],
+            min_bpm=config['MIN_BPM'],
+            max_bpm=config['MAX_BPM']
+        )
         self.face_detector = FaceDetector(minDetectionCon=0.6)
 
         self.slider1 = SliderController()
@@ -73,19 +81,45 @@ class MainProgram:
 
     def reset_bpm(self):
         self.current_bpm = self.config['INITIAL_BPM']
-        self.hand_speed_bpm_calculator.current_bpm = self.config['INITIAL_BPM']
-        self.pattern_bpm_calculator.current_bpm = self.config['INITIAL_BPM']
-        self.pattern_bpm_calculator.last_valid_bpm = self.config['INITIAL_BPM']
+        self.hand_speed_bpm_calculator.update_config('INITIAL_BPM', self.config['INITIAL_BPM'])
+        self.pattern_bpm_calculator.update_config('INITIAL_BPM', self.config['INITIAL_BPM'])
         self.queue_osc_message('/tempo/raw', int(self.config['INITIAL_BPM']))
         print(f"BPM reset to initial value: {self.config['INITIAL_BPM']}")
+
+    def update_config(self, key, value):
+        if key == 'MIN_BPM':
+            if value <= self.config['MAX_BPM']:
+                self.config[key] = value
+                self.hand_speed_bpm_calculator.update_config(key, value)
+                self.pattern_bpm_calculator.update_config(key, value)
+            else:
+                print(f"Warning: MIN_BPM ({value}) cannot be greater than MAX_BPM ({self.config['MAX_BPM']})")
+        elif key == 'MAX_BPM':
+            if value >= self.config['MIN_BPM']:
+                self.config[key] = value
+                self.hand_speed_bpm_calculator.update_config(key, value)
+                self.pattern_bpm_calculator.update_config(key, value)
+            else:
+                print(f"Warning: MAX_BPM ({value}) cannot be less than MIN_BPM ({self.config['MIN_BPM']})")
+        elif key == 'INITIAL_BPM':
+            if self.config['MIN_BPM'] <= value <= self.config['MAX_BPM']:
+                self.config[key] = value
+                self.reset_bpm()
+            else:
+                print(f"Warning: INITIAL_BPM ({value}) must be between MIN_BPM ({self.config['MIN_BPM']}) and MAX_BPM ({self.config['MAX_BPM']})")
+        else:
+            self.config[key] = value
 
     def handle_key(self, key):
         if key == 'm':
             self.mode = 3 - self.mode
             if self.mode == 2:
-                self.pattern_bpm_calculator = PatternBPMCalculator()
-                self.pattern_bpm_calculator.current_bpm = self.current_bpm
-                self.pattern_bpm_calculator.last_valid_bpm = self.current_bpm
+                self.pattern_bpm_calculator = PatternBPMCalculator(
+                    window_size=4,
+                    initial_bpm=self.current_bpm,
+                    min_bpm=self.config['MIN_BPM'],
+                    max_bpm=self.config['MAX_BPM']
+                )
             self.start_message_sent = False
             self.hand_detected = False
             self.mode2_touch_sequence = []
