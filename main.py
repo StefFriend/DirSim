@@ -9,16 +9,19 @@ import threading
 
 class MainProgram:
     def __init__(self, update_bpm_callback, update_frame_callback, config):
+        # Initialize the main program with callbacks and configuration
         self.update_bpm_callback = update_bpm_callback
         self.update_frame_callback = update_frame_callback
         self.config = config
         self.running = False
 
+        # Set up OSC client for sending messages
         self.osc_client = SimpleUDPClient(config['OSC_SERVER'], config['OSC_PORT'])
         self.osc_message_queue = []
         self.osc_thread = threading.Thread(target=self.send_osc_messages, daemon=True)
         self.osc_thread.start()
 
+        # Initialize video capture
         self.cap = cv2.VideoCapture(1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -26,6 +29,7 @@ class MainProgram:
         cap_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         cap_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        # Initialize components
         self.hand_tracker = HandTracker(cap_width, cap_height)
         self.hand_speed_bpm_calculator = HandSpeedBPMCalculator(
             speed_threshold=1000,
@@ -47,23 +51,26 @@ class MainProgram:
         self.slider1 = SliderController()
         self.slider2 = SliderController()
 
+        # Initialize timing variables
         self.last_bpm_send_time = 0
         self.last_slider_send_time = 0
         self.bpm_send_interval = 1
         self.slider_send_interval = 0.1
 
+        # Initialize state variables
         self.mode = 1
         self.current_bpm = config['INITIAL_BPM']
-
         self.start_message_sent = False
         self.hand_detected = False
         self.mode2_touch_sequence = []
         self.expected_sequence = ['down', 'left', 'right', 'up']
 
     def queue_osc_message(self, address, value):
+        # Add an OSC message to the queue
         self.osc_message_queue.append((address, value))
 
     def send_osc_messages(self):
+        # Continuously send queued OSC messages
         while True:
             if self.osc_message_queue:
                 address, value = self.osc_message_queue.pop(0)
@@ -73,6 +80,7 @@ class MainProgram:
                 time.sleep(0.01)  # Sleep to prevent busy-waiting
 
     def send_start_messages(self):
+        # Send initial OSC messages to start the performance
         self.queue_osc_message('/stop', 1)
         self.queue_osc_message('/time', '0:00.000')
         self.queue_osc_message('/play', 1)
@@ -80,6 +88,7 @@ class MainProgram:
         self.start_message_sent = True
 
     def reset_bpm(self):
+        # Reset BPM to initial value
         self.current_bpm = self.config['INITIAL_BPM']
         self.hand_speed_bpm_calculator.update_config('INITIAL_BPM', self.config['INITIAL_BPM'])
         self.pattern_bpm_calculator.update_config('INITIAL_BPM', self.config['INITIAL_BPM'])
@@ -87,6 +96,7 @@ class MainProgram:
         print(f"BPM reset to initial value: {self.config['INITIAL_BPM']}")
 
     def update_config(self, key, value):
+        # Update configuration values
         if key == 'MIN_BPM':
             if value <= self.config['MAX_BPM']:
                 self.config[key] = value
@@ -111,8 +121,9 @@ class MainProgram:
             self.config[key] = value
 
     def handle_key(self, key):
+        # Handle key press events
         if key == 'm':
-            self.mode = 3 - self.mode
+            self.mode = 3 - self.mode  # Switch between mode 1 and 2
             if self.mode == 2:
                 self.pattern_bpm_calculator = PatternBPMCalculator(
                     window_size=4,
@@ -134,6 +145,7 @@ class MainProgram:
             print("OSC messages queued - Stop and Time messages, BPM reset")
 
     def run(self):
+        # Main loop of the program
         self.running = True
         while self.running:
             success, img = self.cap.read()
@@ -167,6 +179,7 @@ class MainProgram:
 
             current_time = time.time()
 
+            # Update BPM based on mode
             if self.mode == 1:
                 self.current_bpm = self.hand_speed_bpm_calculator.update_bpm(right_hand_position)
             else:
@@ -175,25 +188,30 @@ class MainProgram:
                         print(f"{hand_type} hand's index finger reached {box_name} box")
                 self.current_bpm = self.pattern_bpm_calculator.get_bpm()
 
+            # Update slider values
             if left_hand_fingers:
                 self.slider1.update(left_hand_fingers['index'][1] if 'index' in left_hand_fingers else None, img.shape[0])
                 self.slider2.update(left_hand_fingers['pinky'][1] if 'pinky' in left_hand_fingers else None, img.shape[0])
 
+            # Draw sliders on the image
             self.slider1.draw(img, 50, (0, 255, 0))  # Green for slider1
             self.slider2.draw(img, img.shape[1] - 80, (255, 0, 0))  # Blue for slider2
 
+            # Send BPM updates via OSC
             if current_time - self.last_bpm_send_time >= self.bpm_send_interval:
                 rounded_bpm = round(self.current_bpm, 0)
                 self.queue_osc_message('/tempo/raw', int(rounded_bpm))
                 self.last_bpm_send_time = current_time
                 print(f"OSC queued - BPM: {rounded_bpm}")
 
+            # Send slider updates via OSC
             if current_time - self.last_slider_send_time >= self.slider_send_interval:
                 self.queue_osc_message('/track/5/volume', self.slider1.value)
                 self.queue_osc_message('/track/4/volume', self.slider2.value)
                 self.last_slider_send_time = current_time
                 print(f"OSC queued - Track 5 Volume: {self.slider1.value:.2f}, Track 4 Volume: {self.slider2.value:.2f}")
 
+            # Draw information on the image
             cv2.putText(img, f"BPM: {self.current_bpm:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(img, f"Mode: {self.mode}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
@@ -201,17 +219,21 @@ class MainProgram:
             for i, line in enumerate(debug_lines):
                 cv2.putText(img, line, (10, 150 + 30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
+            # Detect faces (not used in the current logic)
             img, _ = self.face_detector.findFaces(img, draw=False)
 
+            # Update GUI
             self.update_frame_callback(img)
             self.update_bpm_callback(self.current_bpm)
 
     def stop(self):
+        # Stop the main loop and release resources
         self.running = False
         if self.cap.isOpened():
             self.cap.release()
 
 if __name__ == "__main__":
+    # Example usage of the MainProgram class
     def dummy_update_bpm(bpm):
         print(f"BPM: {bpm}")
 

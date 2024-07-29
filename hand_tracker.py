@@ -3,11 +3,15 @@ from cvzone.HandTrackingModule import HandDetector
 
 class HandTracker:
     def __init__(self, cap_width, cap_height):
+        # Initialize the hand detector
         self.detector = HandDetector(staticMode=False, maxHands=2, modelComplexity=1, detectionCon=0.5, minTrackCon=0.5)
+        # Define interaction boxes on the screen
         self.boxes = self._define_boxes(cap_width, cap_height)
+        # Initialize debug information string
         self.debug_info = ""
 
     def _define_boxes(self, cap_width, cap_height):
+        # Define the dimensions and positions of interaction boxes
         r_hand_w_ratio, r_hand_h_ratio = 0.2, 0.2
         r_hand_w = int(cap_width * r_hand_w_ratio)
         r_hand_h = int(cap_height * r_hand_h_ratio)
@@ -15,6 +19,7 @@ class HandTracker:
         r_hand_x = int(cap_width * (1 - r_ratio_x) - r_hand_w)
         r_hand_y = int(cap_height * 0.1)
 
+        # Return a dictionary of box coordinates
         return {
             "up": (r_hand_x, r_hand_y, r_hand_x + r_hand_w, r_hand_y + r_hand_h),
             "down": (r_hand_x, r_hand_y + r_hand_h * 2, r_hand_x + r_hand_w, r_hand_y + r_hand_h * 3),
@@ -23,6 +28,7 @@ class HandTracker:
         }
 
     def draw_boxes(self, img, next_expected):
+        # Draw interaction boxes on the image
         for box_name, box_coords in self.boxes.items():
             color = (0, 0, 255)  # Default color: red
             if box_name == next_expected:
@@ -32,6 +38,7 @@ class HandTracker:
         return img
 
     def process_hands(self, img, mode):
+        # Process hand detections in the image
         hands, img = self.detector.findHands(img, draw=False)
         right_hand_position = None
         left_hand_fingers = None
@@ -69,6 +76,7 @@ class HandTracker:
 
     @staticmethod
     def _is_inside_box(point, box):
+        # Check if a point is inside a given box
         x, y = point
         x1, y1, x2, y2 = box
         return x1 <= x <= x2 and y1 <= y <= y2
