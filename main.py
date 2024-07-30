@@ -14,12 +14,15 @@ class MainProgram:
         self.config = config
         self.running = False
 
-        self.osc_client = SimpleUDPClient(config['OSC_SERVER'], config['OSC_PORT'])
+        self.osc_lock = threading.Lock()
+        self.osc_client = None
         self.osc_message_queue = []
+
+        self.create_osc_client()
         self.osc_thread = threading.Thread(target=self.send_osc_messages, daemon=True)
         self.osc_thread.start()
 
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(config.get('CAMERA_INDEX', 0))
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         self.cap.set(cv2.CAP_PROP_FPS, 60)
@@ -60,17 +63,39 @@ class MainProgram:
         self.mode2_touch_sequence = []
         self.expected_sequence = ['down', 'left', 'right', 'up']
 
+        self.debug_mode = config.get('DEBUG_MODE', False)
+
+    def change_camera(self, index):
+        if self.cap.isOpened():
+            self.cap.release()
+        self.cap = cv2.VideoCapture(index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.cap.set(cv2.CAP_PROP_FPS, 60)
+
+    def set_debug_mode(self, debug_mode):
+        self.debug_mode = debug_mode
+
+    def create_osc_client(self):
+        with self.osc_lock:
+            self.osc_client = SimpleUDPClient(self.config['OSC_SERVER'], self.config['OSC_PORT'])
+        print(f"Created OSC client: {self.config['OSC_SERVER']}:{self.config['OSC_PORT']}")
+
     def queue_osc_message(self, address, value):
-        self.osc_message_queue.append((address, value))
+        with self.osc_lock:
+            self.osc_message_queue.append((address, value))
 
     def send_osc_messages(self):
         while True:
-            if self.osc_message_queue:
-                address, value = self.osc_message_queue.pop(0)
-                self.osc_client.send_message(address, value)
-                time.sleep(0.01)
-            else:
-                time.sleep(0.01)
+            with self.osc_lock:
+                if self.osc_message_queue and self.osc_client:
+                    address, value = self.osc_message_queue.pop(0)
+                    try:
+                        self.osc_client.send_message(address, value)
+                        print(f"Sent OSC message: {address} {value}")
+                    except Exception as e:
+                        print(f"Error sending OSC message: {e}")
+            time.sleep(0.01)
 
     def send_start_messages(self):
         self.queue_osc_message('/stop', 1)
@@ -87,38 +112,25 @@ class MainProgram:
         print(f"BPM reset to initial value: {self.config['INITIAL_BPM']}")
 
     def update_config(self, key, value):
-        if key == 'MIN_BPM':
-            if value <= self.config['MAX_BPM']:
-                self.config[key] = value
+        if key in ['MIN_BPM', 'MAX_BPM', 'INITIAL_BPM', 'SENSITIVITY', 'TOUCH_COUNT']:
+            self.config[key] = value
+            if key in ['MIN_BPM', 'MAX_BPM', 'INITIAL_BPM']:
                 self.hand_speed_bpm_calculator.update_config(key, value)
                 self.pattern_bpm_calculator.update_config(key, value)
-            else:
-                print(f"Warning: MIN_BPM ({value}) cannot be greater than MAX_BPM ({self.config['MAX_BPM']})")
-        elif key == 'MAX_BPM':
-            if value >= self.config['MIN_BPM']:
-                self.config[key] = value
+            elif key == 'SENSITIVITY':
                 self.hand_speed_bpm_calculator.update_config(key, value)
+            elif key == 'TOUCH_COUNT':
                 self.pattern_bpm_calculator.update_config(key, value)
-            else:
-                print(f"Warning: MAX_BPM ({value}) cannot be less than MIN_BPM ({self.config['MIN_BPM']})")
-        elif key == 'INITIAL_BPM':
-            if self.config['MIN_BPM'] <= value <= self.config['MAX_BPM']:
-                self.config[key] = value
-                self.reset_bpm()
-            else:
-                print(f"Warning: INITIAL_BPM ({value}) must be between MIN_BPM ({self.config['MIN_BPM']}) and MAX_BPM ({self.config['MAX_BPM']})")
-        elif key == 'SENSITIVITY':
+        elif key in ['OSC_SERVER', 'OSC_PORT']:
             self.config[key] = value
-            self.hand_speed_bpm_calculator.update_config(key, value)
-        elif key == 'TOUCH_COUNT':
-            self.config[key] = value
-            self.pattern_bpm_calculator.update_config(key, value)
+            self.create_osc_client()  # Recreate OSC client with new settings
+            print(f"Updated OSC settings: {key} = {value}")
         else:
             self.config[key] = value
 
     def handle_key(self, key):
         if key == 'm':
-            self.mode = 3 - self.mode
+            self.mode = 3 - self.mode  # Switch between mode 1 and 2
             if self.mode == 2:
                 self.pattern_bpm_calculator = PatternBPMCalculator(
                     window_size=4,
@@ -150,7 +162,7 @@ class MainProgram:
 
             img = cv2.flip(img, 1)
 
-            if self.mode == 2:
+            if self.mode == 2 or self.debug_mode:
                 next_expected = self.pattern_bpm_calculator.get_next_expected()
                 img = self.hand_tracker.draw_boxes(img, next_expected)
 
@@ -185,8 +197,8 @@ class MainProgram:
                 self.slider1.update(left_hand_fingers['index'][1] if 'index' in left_hand_fingers else None, img.shape[0])
                 self.slider2.update(left_hand_fingers['pinky'][1] if 'pinky' in left_hand_fingers else None, img.shape[0])
 
-            self.slider1.draw(img, 50, (0, 255, 0))
-            self.slider2.draw(img, img.shape[1] - 80, (255, 0, 0))
+            self.slider1.draw(img, 50, (0, 255, 0))  # Green for slider1
+            self.slider2.draw(img, img.shape[1] - 80, (255, 0, 0))  # Blue for slider2
 
             if current_time - self.last_bpm_send_time >= self.bpm_send_interval:
                 rounded_bpm = round(self.current_bpm, 0)
@@ -200,14 +212,18 @@ class MainProgram:
                 self.last_slider_send_time = current_time
                 print(f"OSC queued - Track 5 Volume: {self.slider1.value:.2f}, Track 4 Volume: {self.slider2.value:.2f}")
 
-            cv2.putText(img, f"BPM: {self.current_bpm:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(img, f"Mode: {self.mode}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+            if self.debug_mode:
+                cv2.putText(img, f"BPM: {self.current_bpm:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(img, f"Mode: {self.mode}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
-            debug_lines = self.hand_tracker.debug_info.split('\n')
-            for i, line in enumerate(debug_lines):
-                cv2.putText(img, line, (10, 150 + 30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                debug_lines = self.hand_tracker.debug_info.split('\n')
+                for i, line in enumerate(debug_lines):
+                    cv2.putText(img, line, (10, 150 + 30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            img, _ = self.face_detector.findFaces(img, draw=False)
+            if self.debug_mode:
+                img, _ = self.face_detector.findFaces(img, draw=True)
+            else:
+                img, _ = self.face_detector.findFaces(img, draw=False)
 
             self.update_frame_callback(img)
             self.update_bpm_callback(self.current_bpm)
