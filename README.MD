@@ -53,8 +53,34 @@ Components:
 The DirSim Controller is designed to be flexible and extensible, allowing for easy integration with various audio production setups (actually tested with Cockos Reaper) and potential expansion to control other parameters beyond BPM and volume.
 
 ### DirSim Port
+The DirSim Port module serves as a bridge between MIDI input devices and OSC-compatible software, facilitating seamless communication in audio production environments.
 
-[Placeholder for DirSim Port description]
+Key Features:
+1. **MIDI Input Processing**:
+   - Utilizes the `python-rtmidi` library for real-time MIDI message handling.
+   - Supports a wide range of MIDI input devices.
+   - Capable of processing various MIDI message types (e.g., Note On/Off, Control Change).
+
+2. **OSC (Open Sound Control) Output**:
+   - Converts MIDI messages to OSC format using the `python-osc` library.
+   - Configurable OSC server address and port for flexible integration with various audio software.
+
+3. **GUI (Graphical User Interface)**:
+   - Built with PyQt6 for a modern and responsive user interface.
+   - Dropdown menu for easy selection of available MIDI input devices.
+   - Real-time display of incoming MIDI messages and outgoing OSC messages.
+
+4. **Dynamic Configuration**:
+   - Allows users to change MIDI input and OSC output settings on the fly.
+   - Provides immediate feedback on configuration changes.
+
+5. **Error Handling and Logging**:
+   - Robust error handling for MIDI device connections and OSC message transmission.
+   - Detailed logging of all activities for easy troubleshooting and monitoring.
+
+Components:
+1. `dirsim_port.py`: The main script containing the GUI implementation and core logic for MIDI to OSC conversion.
+
 
 ### DirSim Visual
 
@@ -91,6 +117,15 @@ To run the DirSim Controller:
    python gui.py
    ```
 
+To run the DirSim Port:
+1. Navigate to the DirSim Port directory:
+   ```
+   cd DirSim_Port
+   ```
+2. Run the main application:
+   ```
+   python dirsim_port.py
+
 ## Configuration
 
 The DirSim Controller can be configured through the GUI. Key configurable parameters include:
@@ -102,8 +137,15 @@ The DirSim Controller can be configured through the GUI. Key configurable parame
 - Mode selection (Hand Speed or Pattern)
 - Sensitivity settings for hand tracking
 
+For DirSim Port, configuration is done through the GUI:
+- Select the desired MIDI input device from the dropdown menu.
+- Set the OSC server address and port in the provided fields.
+- Click the "Apply" button to confirm OSC settings.
+- Use the "Start" button to begin MIDI to OSC conversion.
+
 ## Acknowledgements
 
 - This project uses the cvzone library for hand tracking and face detection.
 - OSC communication is handled using the python-osc library.
 - GUI is built with PyQt5.
+- MIDI input processing in DirSim Port is facilitated by the python-rtmidi library.
