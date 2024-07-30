@@ -118,6 +118,7 @@ class MainProgram:
                 self.hand_speed_bpm_calculator.update_config(key, value)
                 self.pattern_bpm_calculator.update_config(key, value)
             elif key == 'SENSITIVITY':
+                self.config[key] = value
                 self.hand_speed_bpm_calculator.update_config(key, value)
             elif key == 'TOUCH_COUNT':
                 self.pattern_bpm_calculator.update_config(key, value)

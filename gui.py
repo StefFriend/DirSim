@@ -253,7 +253,7 @@ class HandTrackingGUI(QMainWindow):
         
         mode1_layout = QVBoxLayout()
         mode1_layout.addWidget(QLabel("Mode 1 Sensitivity:"))
-        self.sensitivity_slider, self.sensitivity_label = self.create_slider("Mode 1 Sensitivity", 1000, 100, 2000)
+        self.sensitivity_slider, self.sensitivity_label = self.create_slider("Mode 1 Sensitivity", 5, 1, 10)
         self.sensitivity_slider.valueChanged.connect(self.update_sensitivity)
         mode1_layout.addWidget(self.sensitivity_slider)
         mode1_layout.addWidget(self.sensitivity_label)
@@ -412,7 +412,8 @@ class HandTrackingGUI(QMainWindow):
     def update_sensitivity(self, value):
         self.sensitivity_label.setText(f"Current: {value}")
         if self.main_thread:
-            speed_threshold = 2100 - value  # Invert the relationship
+            # Convert the slider value (1-10) to speed_threshold (2000-100)
+            speed_threshold = 2100 - (value * 200)
             self.main_thread.update_config('SENSITIVITY', speed_threshold)
 
     def update_touch_count(self, index):
@@ -464,7 +465,7 @@ class HandTrackingGUI(QMainWindow):
             'MAX_BPM': self.max_bpm_slider.value(),
             'OSC_SERVER': self.osc_server_input.text(),
             'OSC_PORT': int(self.osc_port_input.text()),
-            'SENSITIVITY': 2100 - self.sensitivity_slider.value(),
+            'SENSITIVITY': 2100 - (self.sensitivity_slider.value() * 200),
             'TOUCH_COUNT': 4 if self.touch_count_combo.currentIndex() == 1 else 2,
             'CAMERA_INDEX': self.camera_combo.currentIndex(),
             'DEBUG_MODE': self.debug_checkbox.isChecked()
