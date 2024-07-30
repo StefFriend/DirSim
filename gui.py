@@ -90,6 +90,12 @@ class StyleSheet:
             border-left-color: {ColorPalette.PRIMARY};
             border-left-style: solid;
         }}
+        QComboBox QAbstractItemView {{
+            background-color: {ColorPalette.BACKGROUND};
+            border: 1px solid {ColorPalette.PRIMARY};
+            selection-background-color: {ColorPalette.SECONDARY};
+            color: {ColorPalette.TEXT};
+        }}
     """
     LABEL = f"""
         QLabel {{

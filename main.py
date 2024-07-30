@@ -162,7 +162,7 @@ class MainProgram:
 
             img = cv2.flip(img, 1)
 
-            if self.mode == 2 or self.debug_mode:
+            if self.mode == 2:
                 next_expected = self.pattern_bpm_calculator.get_next_expected()
                 img = self.hand_tracker.draw_boxes(img, next_expected)
 
@@ -220,10 +220,10 @@ class MainProgram:
                 for i, line in enumerate(debug_lines):
                     cv2.putText(img, line, (10, 150 + 30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            if self.debug_mode:
-                img, _ = self.face_detector.findFaces(img, draw=True)
-            else:
-                img, _ = self.face_detector.findFaces(img, draw=False)
+            #if self.debug_mode:
+            #    img, _ = self.face_detector.findFaces(img, draw=True)
+            #else:
+            #    img, _ = self.face_detector.findFaces(img, draw=False)
 
             self.update_frame_callback(img)
             self.update_bpm_callback(self.current_bpm)
