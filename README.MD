@@ -42,10 +42,6 @@ Key Features:
 7. **Debug Mode**:
    - Provides additional visual feedback and logging for troubleshooting and development.
 
-8. **Face Detection**:
-   - Includes face detection capabilities using cvzone's FaceDetectionModule.
-   - Can be toggled on/off for additional visual feedback or future feature expansion.
-
 Components:
 
 1. `main.py`: The core logic of the Controller, integrating all components and managing the main program loop.
