@@ -62,6 +62,7 @@ class MainProgram:
         self.hand_detected = False
         self.mode2_touch_sequence = []
         self.expected_sequence = ['down', 'left', 'right', 'up']
+        self.program_started = False
 
         self.debug_mode = config.get('DEBUG_MODE', False)
 
@@ -140,9 +141,7 @@ class MainProgram:
                     max_bpm=self.config['MAX_BPM'],
                     touch_count=self.config.get('TOUCH_COUNT', 4)
                 )
-            self.start_message_sent = False
-            self.hand_detected = False
-            self.mode2_touch_sequence = []
+            # We don't reset start_message_sent, hand_detected, or mode2_touch_sequence here anymore
             print(f"Switched to Mode {self.mode}")
         elif key == 's':
             self.queue_osc_message('/stop', 1)
@@ -151,7 +150,9 @@ class MainProgram:
             self.start_message_sent = False
             self.hand_detected = False
             self.mode2_touch_sequence = []
+            self.program_started = False
             print("OSC messages queued - Stop and Time messages, BPM reset")
+
 
     def run(self):
         self.running = True
@@ -169,20 +170,32 @@ class MainProgram:
 
             img, right_hand_position, left_hand_fingers, touched_boxes = self.hand_tracker.process_hands(img, self.mode)
 
-            if self.mode == 1:
-                if (right_hand_position is not None or left_hand_fingers is not None) and not self.start_message_sent:
-                    self.hand_detected = True
-                    self.send_start_messages()
-            else:  # Mode 2
-                if touched_boxes:
-                    for box_name, _ in touched_boxes:
-                        if box_name not in self.mode2_touch_sequence:
-                            self.mode2_touch_sequence.append(box_name)
-                    
-                    if len(self.mode2_touch_sequence) == 4 and self.mode2_touch_sequence == self.expected_sequence:
-                        if not self.start_message_sent:
+            if not self.program_started:
+                if self.mode == 1:
+                    if right_hand_position is not None or left_hand_fingers is not None:
+                        self.hand_detected = True
+                        self.send_start_messages()
+                        self.program_started = True
+                else:  # Mode 2
+                    if touched_boxes:
+                        for box_name, _ in touched_boxes:
+                            if box_name not in self.mode2_touch_sequence:
+                                self.mode2_touch_sequence.append(box_name)
+                        
+                        if len(self.mode2_touch_sequence) == 4 and self.mode2_touch_sequence == self.expected_sequence:
                             self.send_start_messages()
-                        self.mode2_touch_sequence = []
+                            self.program_started = True
+                            self.mode2_touch_sequence = []
+            else:
+                # Program has started, handle mode-specific logic
+                if self.mode == 1:
+                    self.current_bpm = self.hand_speed_bpm_calculator.update_bpm(right_hand_position)
+                else:  # Mode 2
+                    current_time = time.time()
+                    for box_name, hand_type in touched_boxes:
+                        if self.pattern_bpm_calculator.add_touch(current_time, box_name):
+                            print(f"{hand_type} hand's index finger reached {box_name} box")
+                    self.current_bpm = self.pattern_bpm_calculator.get_bpm()
 
             current_time = time.time()
 
