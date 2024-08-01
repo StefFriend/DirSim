@@ -316,6 +316,7 @@ class HandTrackingGUI(QMainWindow):
         self.apply_osc_button = QPushButton("Apply")
         self.apply_osc_button.setStyleSheet(StyleSheet.APPLY_BUTTON)
         self.apply_osc_button.clicked.connect(self.apply_osc_settings)
+        #self.apply_osc_button.clicked.connect(lambda: self.send_key('s'))
         osc_layout.addRow("", self.apply_osc_button)
         
         osc_group.setLayout(osc_layout)
@@ -457,6 +458,7 @@ class HandTrackingGUI(QMainWindow):
             print(f"OSC settings updated - Server: {new_server}, Port: {new_port}")
         else:
             print("Cannot update OSC settings. Main program is not running.")
+        
 
     def start_main_program(self):
         config = {
