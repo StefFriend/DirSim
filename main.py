@@ -246,6 +246,11 @@ class MainProgram:
         self.running = False
         if self.cap.isOpened():
             self.cap.release()
+    
+    def release_resources(self):
+        if self.cap.isOpened():
+            self.cap.release()  # Release the camera
+
 
 if __name__ == "__main__":
     def dummy_update_bpm(bpm):

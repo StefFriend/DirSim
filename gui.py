@@ -181,21 +181,25 @@ class MainThread(QThread):
         super().__init__()
         self.config = config
         self.main_program = None
+        self.running = False
 
     def run(self):
+        self.running = True
         self.main_program = MainProgram(self.update_bpm.emit, self.update_frame.emit, self.config)
         self.main_program.run()
 
     def stop(self):
+        self.running = False
         if self.main_program:
             self.main_program.stop()
+            self.main_program = None  # Clear the reference to allow garbage collection
 
     def send_key(self, key):
-        if self.main_program:
+        if self.main_program and self.running:
             self.main_program.handle_key(key)
 
     def update_config(self, key, value):
-        if self.main_program:
+        if self.main_program and self.running:
             self.main_program.update_config(key, value)
 
 class HandTrackingGUI(QMainWindow):
@@ -461,37 +465,45 @@ class HandTrackingGUI(QMainWindow):
         
 
     def start_main_program(self):
-        config = {
-            'INITIAL_BPM': self.initial_bpm_slider.value(),
-            'MIN_BPM': self.min_bpm_slider.value(),
-            'MAX_BPM': self.max_bpm_slider.value(),
-            'OSC_SERVER': self.osc_server_input.text(),
-            'OSC_PORT': int(self.osc_port_input.text()),
-            'SENSITIVITY': 2100 - (self.sensitivity_slider.value() * 200),
-            'TOUCH_COUNT': 4 if self.touch_count_combo.currentIndex() == 1 else 2,
-            'CAMERA_INDEX': self.camera_combo.currentIndex(),
-            'DEBUG_MODE': self.debug_checkbox.isChecked()
-        }
-        self.main_thread = MainThread(config)
-        self.main_thread.update_bpm.connect(self.update_bpm_display)
-        self.main_thread.update_frame.connect(self.update_frame)
-        self.main_thread.start()
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
-        self.mode_button.setEnabled(True)
-        self.reset_button.setEnabled(True)
-        self.apply_osc_button.setEnabled(True)
+        if self.main_thread is None:
+            config = {
+                'INITIAL_BPM': self.initial_bpm_slider.value(),
+                'MIN_BPM': self.min_bpm_slider.value(),
+                'MAX_BPM': self.max_bpm_slider.value(),
+                'OSC_SERVER': self.osc_server_input.text(),
+                'OSC_PORT': int(self.osc_port_input.text()),
+                'SENSITIVITY': 2100 - (self.sensitivity_slider.value() * 200),
+                'TOUCH_COUNT': 4 if self.touch_count_combo.currentIndex() == 1 else 2,
+                'CAMERA_INDEX': self.camera_combo.currentIndex(),
+                'DEBUG_MODE': self.debug_checkbox.isChecked()
+            }
+            self.main_thread = MainThread(config)
+            self.main_thread.update_bpm.connect(self.update_bpm_display)
+            self.main_thread.update_frame.connect(self.update_frame)
+            self.main_thread.start()
+            self.start_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+            self.mode_button.setEnabled(True)
+            self.reset_button.setEnabled(True)
+            self.apply_osc_button.setEnabled(True)
 
     def stop_main_program(self):
         if self.main_thread:
             self.main_thread.stop()
-            self.main_thread.wait()
+            self.main_thread.wait()  # Wait for the thread to finish
+            self.main_thread.deleteLater()  # Schedule the thread object for deletion
             self.main_thread = None
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.mode_button.setEnabled(False)
         self.reset_button.setEnabled(False)
         self.apply_osc_button.setEnabled(False)
+        self.camera_label.clear()  # Clear the camera feed
+        self.bpm_label.setText(f"{INITIAL_BPM} BPM")  # Reset BPM display
+
+    def closeEvent(self, event):
+        self.stop_main_program()
+        super().closeEvent(event)
 
     def update_bpm_display(self, bpm):
         self.bpm_label.setText(f"{bpm:.1f} BPM")
@@ -506,10 +518,6 @@ class HandTrackingGUI(QMainWindow):
                 self.send_key('m')
             elif event.key() == Qt.Key_S:
                 self.send_key('s')
-
-    def closeEvent(self, event):
-        self.stop_main_program()
-        super().closeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
