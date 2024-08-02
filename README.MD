@@ -84,7 +84,37 @@ Components:
 
 ### DirSim Visual
 
-[Placeholder for DirSim Visual description]
+DirSim Visual is a Processing-based visualization module designed to provide a dynamic, real-time representation of an orchestra based on MIDI input. It serves as the visual component of the DirSim project, creating an engaging and intuitive display of musical activity.
+
+Key Features:
+
+1. **Orchestra Layout Visualization**:
+   - Displays a semicircular arrangement of instrument sections, mimicking a real orchestra setup.
+   - Each section is represented by a circular node, positioned according to typical orchestra seating.
+
+2. **Real-time MIDI Visualization**:
+   - Responds to MIDI input in real-time, lighting up corresponding instrument sections.
+   - The intensity and size of each section's visual representation change based on MIDI velocity.
+
+3. **Color-coded Instrument Families**:
+   - Uses distinct color schemes for different instrument families (strings, woodwinds, brass, percussion).
+   - Enhances visual differentiation between various orchestra sections.
+
+4. **Dynamic Background**:
+   - Features a subtle, animated background that responds to overall musical activity.
+
+5. **Conductor Representation**:
+   - Includes a visual element representing the conductor's position.
+
+6. **Debug Mode**:
+   - Offers a toggleable debug mode for displaying technical information such as FPS, active sections, and last received MIDI message.
+
+7. **Customizable Layout**:
+   - Allows for easy adjustment of the orchestra layout, colors, and sizes through code modifications.
+
+Components:
+
+1. `particle10.pde`: The main Processing sketch containing all the visualization logic.
 
 ## Installation
 
@@ -126,6 +156,18 @@ To run the DirSim Port:
    ```
    python dirsim_port.py
 
+
+To run DirSim Visual:
+
+1. Ensure you have Processing installed on your system.
+
+2. Open the `particle3.pde` file in the Processing IDE.
+
+3. Click the "Run" button or press Ctrl+R (Cmd+R on Mac) to start the visualization.
+
+4. Ensure that MIDI messages are being sent to the correct port (default is 57120) for the visualization to respond.
+
+
 ## Configuration
 
 The DirSim Controller can be configured through the GUI. Key configurable parameters include:
@@ -143,9 +185,18 @@ For DirSim Port, configuration is done through the GUI:
 - Click the "Apply" button to confirm OSC settings.
 - Use the "Start" button to begin MIDI to OSC conversion.
 
+For DirSim Visual, configuration is primarily done through code adjustments:
+
+- Modify the `sectionFamilies` and `familyColors` arrays to change the instrument layout and color scheme.
+- Adjust the `radius` and angle calculations in the `setup()` function to alter the overall layout.
+- Change the `backgroundColor` value to set a different background color.
+- Modify the `Section` class to alter the behavior and appearance of individual instrument representations.
+
+
 ## Acknowledgements
 
 - This project uses the cvzone library for hand tracking and face detection.
 - OSC communication is handled using the python-osc library.
 - GUI is built with PyQt5.
 - MIDI input processing in DirSim Port is facilitated by the python-rtmidi library.
+- DirSim Visual is implemented using Processing.
