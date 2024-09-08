@@ -15,7 +15,7 @@ class HandTracker:
         r_hand_w_ratio, r_hand_h_ratio = 0.2, 0.2
         r_hand_w = int(cap_width * r_hand_w_ratio)
         r_hand_h = int(cap_height * r_hand_h_ratio)
-        r_ratio_x = 0.15
+        r_ratio_x = 0.201
         r_hand_x = int(cap_width * (1 - r_ratio_x) - r_hand_w)
         r_hand_y = int(cap_height * 0.1)
 

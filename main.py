@@ -221,10 +221,10 @@ class MainProgram:
                 print(f"OSC queued - BPM: {rounded_bpm}")
 
             if current_time - self.last_slider_send_time >= self.slider_send_interval:
-                self.queue_osc_message('/track/5/volume', self.slider1.value)
-                self.queue_osc_message('/track/4/volume', self.slider2.value)
+                self.queue_osc_message('/track/1/volume', self.slider1.value)
+                self.queue_osc_message('/track/2/volume', self.slider2.value)
                 self.last_slider_send_time = current_time
-                print(f"OSC queued - Track 5 Volume: {self.slider1.value:.2f}, Track 4 Volume: {self.slider2.value:.2f}")
+                print(f"OSC queued - Track 1 Volume: {self.slider1.value:.2f}, Track 2 Volume: {self.slider2.value:.2f}")
 
             if self.debug_mode:
                 cv2.putText(img, f"BPM: {self.current_bpm:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -260,9 +260,9 @@ if __name__ == "__main__":
         cv2.imshow("Frame", frame)
 
     config = {
-        'INITIAL_BPM': 104,
-        'MIN_BPM': 100,
-        'MAX_BPM': 125,
+        'INITIAL_BPM': 36,
+        'MIN_BPM': 36,
+        'MAX_BPM': 50,
         'OSC_SERVER': "127.0.0.1",
         'OSC_PORT': 57121,
         'SENSITIVITY': 1000,
