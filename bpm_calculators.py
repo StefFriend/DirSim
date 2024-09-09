@@ -133,3 +133,4 @@ class PatternBPMCalculator:
 
     def get_next_expected(self):
         return self.expected_pattern[self.pattern_index]
+
