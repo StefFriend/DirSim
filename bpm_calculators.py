@@ -3,7 +3,7 @@ from collections import deque
 import time
 
 class HandSpeedBPMCalculator:
-    def __init__(self, speed_threshold=1000, still_threshold=100, dead_zone=80, decrease_rate=0.5, initial_bpm=104, min_bpm=100, max_bpm=125):
+    def __init__(self, speed_threshold=1000, still_threshold=100, dead_zone=80, decrease_rate=0.5, initial_bpm=36, min_bpm=30, max_bpm=50):
         self.speed_threshold = speed_threshold
         self.still_threshold = still_threshold
         self.dead_zone = dead_zone
@@ -74,7 +74,7 @@ class HandSpeedBPMCalculator:
         return self.current_bpm
 
 class PatternBPMCalculator:
-    def __init__(self, window_size=4, initial_bpm=104, min_bpm=100, max_bpm=125, touch_count=4):
+    def __init__(self, window_size=4, initial_bpm=36, min_bpm=30, max_bpm=50, touch_count=4):
         self.window_size = window_size
         self.touch_times = deque(maxlen=window_size)
         self.current_bpm = initial_bpm

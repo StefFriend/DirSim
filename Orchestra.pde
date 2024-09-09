@@ -22,7 +22,7 @@ int wavesPerClick = 1;  // Number of waves to spawn per click
 float repelRadius = 100;  // Radius within which waves repel each other
 float repelStrength = 3;  // Strength of repelling force
 
-// Particles systems
+// Particles systems 
 ArrayList<Section> sections = new ArrayList<Section>();
 Particle[] particles;  // Array of particles
 ArrayList<Star> stars;  // List to store all stars
@@ -39,6 +39,7 @@ color[] familyColors = {
 boolean debugMode = false;
 String lastOscMessage = "No message received yet";
 
+//color variables
 color backgroundColor; // Background color
 color conducterColor; // Conducter color
 color colSection; // Sections Color
@@ -135,7 +136,7 @@ void draw() {
   }
 }
 
-// Function to create particles based on the sections and rows
+// Function to create instrument sections
 void createSections() {
   float angleStep = (endAngle - startAngle) / mainSections;
   
@@ -161,12 +162,11 @@ void createSections() {
         // Split the second and third rows into 2 sub-columns
         float columnStep = (nextAngle - angle) / 2;
         
-        
         for (int k = 0; k < 2; k++) {
           float subAngle = angle + k * columnStep;  
           float nextSubAngle = subAngle + columnStep;  
 
-          // Create a particle for each sub-column with a random color
+          // Create a section for each sub-column
           Section s = new Section(innerRowRadius, outerRowRadius, subAngle, nextSubAngle, colSection);
           sections.add(s);
         }
@@ -179,7 +179,7 @@ void createSections() {
   }
 }
 
-
+// Function to receive the OSC messages
 void oscEvent(OscMessage theOscMessage) {
   String addrPattern = theOscMessage.addrPattern();
   lastOscMessage = addrPattern; // Update for debug display
@@ -245,6 +245,7 @@ void keyPressed() {
   }
 }
 
+// function to change BPM parameters
 void onBeat() {
   if (conducterColor == 100){
     conducterColor = 180;
